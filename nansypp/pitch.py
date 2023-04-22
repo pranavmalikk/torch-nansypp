@@ -88,10 +88,11 @@ class PitchEncoder(nn.Module):
             batch_first=True, bidirectional=True)
         # unknown `hiddens`
         # f0_bins=64
+        #uknown - changed hiddens * 2 to hiddens
         self.proj = nn.Sequential(
-            nn.Linear(gru * 2, hiddens * 2),
+            nn.Linear(gru * 2, hiddens*2),
             nn.ReLU(),
-            nn.Linear(hiddens * 2, f0_bins + 2))
+            nn.Linear(hiddens*2, f0_bins + 2))
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """Compute the pitch from inputs.

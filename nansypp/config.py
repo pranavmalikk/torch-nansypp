@@ -2,11 +2,15 @@ class Config:
     """NANSY++ configurations.
     """
     def __init__(self):
-        self.sr = 22050
+        # Note that we downsample input waveforms into
+        # 16 kHz before passing into analysis modules and let the synthesizer produces the original 44.1 kHz
+        # waveforms. This enables 16 kHz to 44.1 kHz audio upsampling.
+        self.sr = 16000
+        self.synthesizesr = 22050
 
         # unknown all STFT hyperparameters
         self.mel = 80
-        self.mel_hop = 256
+        self.mel_strides = 256
         self.mel_win = 1024
         self.mel_win_fn = 'hann'
         self.mel_fmin = 0
@@ -15,8 +19,10 @@ class Config:
         # unknown
         # , default negative-slope of nn.LeakyReLU
         self.leak = 0.01
+        # unkown - for convglu block
         # , default dropout rate of nn.Transformer
-        self.dropout = 0.1
+        self.dropout = 0.2
+        #self.dropout = 0.1
 
         # Wav2Vec2Wrapper
         self.w2v2_name = 'facebook/wav2vec2-large-xlsr-53'
@@ -33,9 +39,9 @@ class Config:
         self.ling_kernels = [3] * 8 + [1] * 2
 
         # ConstantQTransform
-        self.cqt_hop = 256
+        self.cqt_hop = 512
         self.cqt_fmin = 32.7
-        # self.cqt_fmax = 8000
+        self.cqt_fmax = 8000
         self.cqt_bins = 191
         self.cqt_bins_per_octave = 24
 
@@ -46,9 +52,9 @@ class Config:
         self.pitch_channels = 128
         self.pitch_blocks = 2
         # unknown
-        self.pitch_gru = 256
+        self.pitch_gru = 512
         # unknown
-        self.pitch_hiddens = 256
+        self.pitch_hiddens = 128
         self.pitch_f0_bins = 64
         self.pitch_start = 50  # hz
         self.pitch_end = 1000
@@ -70,6 +76,7 @@ class Config:
         self.timb_bottleneck = 128
         # NANSY++: 3072
         self.timb_hiddens = 1536
+        self.timb_hiddens_nansy = 3072
         self.timb_latent = 512
         self.timb_timber = 128
         self.timb_tokens = 50

@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio.functional as AF
+from torch import nn
 
 from config import Config
 from disc import Discriminator
@@ -199,6 +200,9 @@ class TrainingWrapper:
             mag_f, mag_r = fft.abs().chunk(2, dim=0)
             # []
             mss_loss = mss_loss + (mag_f - mag_r).square().mean()
+        #unknown mss loss
+        # mr_loss = MultiResolutionSpectralLoss()
+        # mss_loss = mr_loss(synth, seg)
         # aggregate
         rctor_loss = mel_loss + mss_loss
 
@@ -219,7 +223,7 @@ class TrainingWrapper:
         biased_pitch = (biased_bins * self.model.pitch_bins).sum(dim=-1)
 
         # pitch consistency
-        pitch_loss = F.huber_loss(
+        pitch_loss = 12 * F.huber_loss(
             biased_pitch.log2() + 0.5 * dist[:, None],
             pitch.log2(),
             delta=self.config.train.delta)
@@ -229,6 +233,7 @@ class TrainingWrapper:
         # [B, lin_hiddens, S]
         ling2 = self.model.analyze_linguistic(aug2)
         # [2, B, lin_hiddens, S], normalize for cosine similarity.
+        #don't know if need L2 normalization?
         ling_s = F.normalize(torch.stack([ling, ling2], dim=0), p=2, dim=2)
 
         # alias
@@ -256,7 +261,10 @@ class TrainingWrapper:
         # [2, B, N], negative case
         neg = torch.logsumexp(masked, dim=-1)
         # []
-        cont_loss = -torch.logsumexp(pos - neg, dim=-1).sum(dim=0).mean()
+        # cont_loss = -torch.logsumexp(pos - neg, dim=-1).sum(dim=0).mean()
+        cont_loss = -torch.log(torch.exp(pos) / (torch.exp(pos) + torch.exp(neg))).sum(dim=0).mean()
+
+
 
         # metric purpose
         metric_pos = pos.mean().item() * kappa
@@ -304,3 +312,4 @@ class TrainingWrapper:
         self.content_weight = min(
             self.content_weight + self.config.train.content_start,
             self.config.train.content_end)
+

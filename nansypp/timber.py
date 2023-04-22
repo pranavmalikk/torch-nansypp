@@ -7,22 +7,14 @@ import torch.nn.functional as F
 
 
 class Res2Block(nn.Module):
-    """Multi-scale residual blocks.
-    """
     def __init__(self, channels: int, scale: int, kernels: int, dilation: int):
-        """Initializer.
-        Args:
-            channels: size of the input channels.
-            scale: the number of the blocks.
-            kenels: size of the convolutional kernels.
-            dilation: dilation factors.
-        """
-        super().__init__()
-        assert channels % scale == 0, \
-            f'size of the input channels(={channels})' \
-            f' should be factorized by scale(={scale})'
+        super(Res2Block, self).__init__()
         width = channels // scale
         self.scale = scale
+        if scale == 1:
+            self.nums = 1
+        else:
+            self.nums = scale - 1
         self.convs = nn.ModuleList([
             nn.Sequential(
                 nn.Conv1d(
@@ -31,30 +23,14 @@ class Res2Block(nn.Module):
                     dilation=dilation),
                 nn.ReLU(),
                 nn.BatchNorm1d(width))
-            for _ in range(scale - 1)])
-
+            for _ in range(self.nums)])
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        """Transform the inputs.
-        Args:
-            inputs: [torch.float32; [B, C, T]], input 1D tensor,
-                where C = `channels`.
-        Returns:
-            [torch.float32; [B, C, T]], transformed.
-        """
-        # [B, W, T], (S - 1) x [B, W, T] where W = C // S
-        straight, *xs = inputs.chunk(self.scale, dim=1)
-        # [B, W, T]
-        base = torch.zeros_like(straight)
-        # S x [B, W, T]
-        outs = [straight]
-        for x, conv in zip(xs, self.convs):
-            # [B, W, T], increasing receptive field progressively
-            base = conv(x + base)
-            outs.append(base)
-        # [B, C, T]
-        return torch.cat(outs, dim=1)
-
-
+        chunks = inputs.chunk(self.scale, dim=1)
+        res = chunks[0]
+        for idx, conv in enumerate(self.convs):
+            res = res + conv(chunks[idx + 1])
+        return torch.cat((res, *chunks[1:]), dim=1)
+    
 class SERes2Block(nn.Module):
     """Multiscale residual block with Squeeze-Excitation modules.
     """
@@ -63,7 +39,8 @@ class SERes2Block(nn.Module):
                  scale: int,
                  kernels: int,
                  dilation: int,
-                 bottleneck: int):
+                 bottleneck: int,
+                 dim_minimum: int = 8):
         """Initializer.
         Args:
             channels: size of the input channels.
@@ -90,6 +67,13 @@ class SERes2Block(nn.Module):
             nn.ReLU(),
             nn.Linear(bottleneck, channels),
             nn.Sigmoid())
+        dim_inner = channels // bottleneck
+        self.net = nn.Sequential(
+            nn.Conv1d(channels, dim_inner, 1),
+            nn.SiLU(),
+            nn.Conv1d(dim_inner, channels, 1),
+            nn.Sigmoid()
+        )
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """Transform the inputs.
@@ -106,7 +90,10 @@ class SERes2Block(nn.Module):
         # [B, C, T]
         x = self.postblock(x)
         # [B, C], squeeze and excitation
-        scale = self.excitation(x.mean(dim=-1))
+        input_for_net = x.mean(dim=-1).unsqueeze(-1)
+        scale = self.net(input_for_net)
+        scale = scale.squeeze(-1) 
+#         scale = self.excitation(x.mean(dim=-1))
         # [B, C, T]
         x = x * scale[..., None]
         # residual connection

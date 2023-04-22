@@ -20,7 +20,7 @@ class TrainConfig:
         self.beta2 = 0.999
         # huber norm
         # unknown
-        self.delta = 1.0
+        self.delta = .5
         # content loss warmup
         self.content_start = 1e-5
         self.content_end = 10
@@ -48,8 +48,10 @@ class TrainConfig:
 
         # objective
         # 16khz sr, default win=[1920, 320, 80], hop=[640, 80, 40] in NSF
-        self.wins = [2048, 512, 128]
-        self.hops = [512, 128, 32]
+        # self.wins = [2048, 512, 128]
+        # self.hops = [512, 128, 32]
+        self.wins = [320, 80, 1920]
+        self.hops = [80, 40, 640]
 
         # loader settings
         self.batch = 16
@@ -57,12 +59,17 @@ class TrainConfig:
         self.num_workers = 4
         self.pin_memory = True
 
+        self.gradient_accumulation_steps = 4
+
+
         # train iters
-        self.epoch = 1000
+        self.epoch = 50
 
         # segment length
         sec = 1
-        self.seglen = int(sr * sec) // hop * hop
+        #unknown
+        # self.seglen = int(sr * sec) // hop * hop
+        self.seglen = 23520
 
         # path config
         self.log = './log'

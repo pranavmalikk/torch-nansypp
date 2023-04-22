@@ -45,13 +45,15 @@ class PraatAugment:
             return snd.values[0]
         # if voiced
         median, minp = np.median(ndpit[nonzero]).item(), ndpit[nonzero].min().item()
-        # scale
+        # scale - why do we do updated here?
         updated = median * pitch_shift
+        #what's the point of scaling?
         scaled = updated + (minp * pitch_shift - updated) * pitch_range
         # for preventing infinite loop of `Change gender`
         # ref:https://github.com/praat/praat/issues/1926
         if scaled < 0.:
             pitch_range = 1.
+        #why is median * pitch shift used here?
         out, = parselmouth.praat.call(
             (snd, pitch), 'Change gender',
             formant_shift,

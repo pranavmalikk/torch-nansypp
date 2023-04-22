@@ -75,7 +75,7 @@ class WaveNet(nn.Module):
         super().__init__()
         # channels=64
         self.proj_signal = nn.utils.weight_norm(nn.Conv1d(1, channels, 1))
-        # aux=1024, cycles=3, layers=10, dilation_rate=2
+        # aux=128, cycles=3, layers=10, dilation_rate=2 - 2^i (2^10) = 512 (include 0)
         self.blocks = nn.ModuleList([
             WaveNetBlock(channels, aux, kernels, dilation_rate ** j)
             for _ in range(cycles)

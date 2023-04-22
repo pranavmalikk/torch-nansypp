@@ -22,10 +22,10 @@ class Augment(nn.Module):
         self.config = config
         self.praat = PraatAugment(config)
         self.peq = ParametricEqualizer(
-            config.model.sr, config.model.mel_windows)
+            config.model.sr, config.model.mel_win)
         self.register_buffer(
             'window',
-            torch.hann_window(config.model.mel_windows),
+            torch.hann_window(config.model.mel_win),
             persistent=False)
         f_min, f_max, peaks = \
             config.train.cutoff_lowpass, \
@@ -57,12 +57,16 @@ class Augment(nn.Module):
         """
         # B
         bsize, _ = wavs.shape
+        #padding for input wav file
+        padding_length = int(np.ceil(wavs.shape[-1] / self.config.model.mel_strides) * self.config.model.mel_strides)
+        wavs_padded = torch.zeros((bsize, padding_length))
+        wavs_padded[:, :wavs.shape[-1]] = wavs
         # [B, F, T / S], complex64
         fft = torch.stft(
             wavs,
-            self.config.model.mel_windows,
+            self.config.model.mel_win,
             self.config.model.mel_strides,
-            self.config.model.mel_windows,
+            self.config.model.mel_win,
             self.window,
             return_complex=True)
         # PEQ
@@ -89,12 +93,19 @@ class Augment(nn.Module):
             # [B, F, T / S]
             fft = fft * filters[..., None]
         # [B, T]
+        # out = torch.istft(
+        #     fft,
+        #     self.config.model.mel_windows,
+        #     self.config.model.mel_strides,
+        #     self.config.model.mel_windows,
+        #     self.window).clamp(-1., 1.)
+        #removing clamp because input wav is not clamped/clamped twice don't know why
         out = torch.istft(
             fft,
-            self.config.model.mel_windows,
+            self.config.model.mel_win,
             self.config.model.mel_strides,
-            self.config.model.mel_windows,
-            self.window).clamp(-1., 1.)
+            self.config.model.mel_win,
+            self.window)
         # max value normalization
         out = out / out.abs().amax(dim=-1, keepdim=True).clamp_min(1e-7)
         if formant_shift is None and pitch_shift is None and pitch_range is None:

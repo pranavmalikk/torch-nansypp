@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 
-import git
+# import git
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -53,6 +53,7 @@ class Trainer:
             collate_fn=self.dataset.collate,
             num_workers=config.train.num_workers,
             pin_memory=config.train.pin_memory)
+        
 
         self.testloader = torch.utils.data.DataLoader(
             self.testset,
@@ -85,6 +86,8 @@ class Trainer:
         self.melspec = MelSTFT(config.data)
         self.cmap = np.array(plt.get_cmap('viridis').colors)
 
+        # self.gradient_accumulation_steps = config.train.gradient_accumulation_steps
+
     def train(self, epoch: int = 0):
         """Train wavegrad.
         Args:
@@ -98,6 +101,19 @@ class Trainer:
                     sid, seg = self.wrapper.random_segment(bunch)
                     seg = torch.tensor(seg, device=self.wrapper.device)
                     loss_g, losses_g, aux_g = self.wrapper.loss_generator(sid, seg)
+
+                    # Gradient accumulation for the generator
+                    # loss_g /= self.gradient_accumulation_steps
+                    # loss_g.backward()
+
+                    # loss_d, losses_d, _ = self.wrapper.loss_discriminator(seg)
+
+                    # # Gradient accumulation for the discriminator
+                    # loss_d /= self.gradient_accumulation_steps
+                    # loss_d.backward()
+                    # sid, seg = self.wrapper.random_segment(bunch)
+                    # seg = torch.tensor(seg, device=self.wrapper.device)
+                    # loss_g, losses_g, aux_g = self.wrapper.loss_generator(sid, seg)
                     # update
                     self.optim_g.zero_grad()
                     loss_g.backward()
@@ -108,7 +124,7 @@ class Trainer:
                     self.optim_d.zero_grad()
                     loss_d.backward()
                     self.optim_d.step()
-
+                    # if (it + 1) % self.gradient_accumulation_steps == 0:
                     step += 1
                     pbar.update()
                     pbar.set_postfix({'loss': loss_d.item(), 'step': step})
@@ -272,7 +288,7 @@ if __name__ == '__main__':
     trainset = speechset.utils.IDWrapper(
         speechset.WavDataset(speechset.utils.DumpReader('./datasets/dumped')))
     testset = speechset.utils.IDWrapper(
-        speechset.WavDataset(speechset.utils.DumpReader('./datasets/libri_test_clean')))
+        speechset.WavDataset(speechset.utils.DumpReader('./datasets/dumped')))
 
     # model definition
     device = torch.device(
@@ -303,10 +319,10 @@ if __name__ == '__main__':
         args.load_epoch += 1
 
     # git configuration
-    repo = git.Repo()
-    config.train.hash = repo.head.object.hexsha
-    with open(os.path.join(config.train.ckpt, config.train.name + '.json'), 'w') as f:
-        json.dump(config.dump(), f)
+    # repo = git.Repo()
+    # config.train.hash = repo.head.object.hexsha
+    # with open(os.path.join(config.train.ckpt, config.train.name + '.json'), 'w') as f:
+    #     json.dump(config.dump(), f)
 
     # start train
     trainer.train(args.load_epoch or 0)

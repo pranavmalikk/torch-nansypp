@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 import torchaudio
 
-from .rough_cqt import CQT2010v2
+from .rough_cqt import CQT2010v2, CQT1992v2
+from nnAudio import features
 
 
 class ConstantQTransform(nn.Module):
@@ -32,10 +33,12 @@ class ConstantQTransform(nn.Module):
         # , fmax = 2 ** (bins / bins_per_octave) * fmin
         #        = 2 ** (191 / 24) * 32.7
         #        = 8132.89
+        #unknown trainable parameter
         self.cqt = CQT2010v2(
             sr,
             strides,
             fmin,
+            fmax = 8000,
             n_bins=bins,
             bins_per_octave=bins_per_octave,
             trainable=False,
@@ -49,6 +52,7 @@ class ConstantQTransform(nn.Module):
             [torch.float32; [B, bins, T / strides]], CQT magnitudes.
         """
         return self.cqt(inputs[:, None])
+
 
 
 class MelSpectrogram(nn.Module):

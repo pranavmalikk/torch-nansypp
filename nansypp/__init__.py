@@ -43,7 +43,7 @@ class Nansypp(nn.Module):
             config.cqt_bins_per_octave,
             config.sr)
 
-        self.cqt_center = (config.cqt_bins - config.pitch_freq) // 2
+        self.cqt_center = 15
 
         self.pitch = PitchEncoder(
             config.pitch_freq,
@@ -64,7 +64,7 @@ class Nansypp(nn.Module):
                 config.pitch_f0_bins).exp())
 
         self.melspec = MelSpectrogram(
-            config.mel_hop,
+            config.mel_strides,
             config.mel_win,
             config.mel,
             config.mel_fmin,
@@ -100,7 +100,7 @@ class Nansypp(nn.Module):
 
         self.synthesizer = Synthesizer(
             config.cqt_hop,
-            config.sr,
+            config.synthesizesr,
             config.synth_channels,
             config.ling_hiddens,
             config.synth_kernels,
@@ -120,12 +120,14 @@ class Nansypp(nn.Module):
         """
         # [B, cqt_bins, N(=T / cqt_hop)]
         ## TODO: log-scale or not.
+        # print("inputs shapes areeeee :" + str(inputs.shape))
         cqt = self.cqt(inputs)
         # alias
         freq = self.config.pitch_freq
         if index is None:
             index = self.cqt_center
         # [B, N, f0_bins], [B, N], [B, N]
+        # print("cqt is :" + str(cqt[:, index:index + freq].shape))
         pitch_bins, p_amp, ap_amp = self.pitch.forward(cqt[:, index:index + freq])
         # [B, N]
         pitch = (pitch_bins * self.pitch_bins).sum(dim=-1)
